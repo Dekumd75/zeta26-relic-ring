@@ -50,3 +50,8 @@ Launch26_Deep_Explanation.pdf
 /index.html
 /requirements.txt
 /universe-config.json
+
+# Frontend
+node_modules/
+frontend/node_modules/
+

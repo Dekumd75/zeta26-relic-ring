@@ -1,0 +1,19 @@
+{
+    "name":  "zeta26-relic-ring-frontend",
+    "version":  "1.0.0",
+    "private":  true,
+    "type":  "module",
+    "scripts":  {
+                    "dev":  "vite --host 127.0.0.1",
+                    "build":  "vite build",
+                    "preview":  "vite preview --host 127.0.0.1"
+                },
+    "dependencies":  {
+                         "vite":  "6.4.3",
+                         "react":  "latest",
+                         "react-dom":  "latest"
+                     },
+    "devDependencies":  {
+
+                        }
+}
