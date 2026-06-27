@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+env/
+venv/
+.venv/
+*.env
+
+# Flask
+instance/
+.webassets-cache
+flask_session/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temp / output files
+*.log
+pdf_output.txt
+eq_output.txt
+challenge_output.txt
+test_logic.py
+test_api.py
+*.tmp
+
+# PDF outputs (generated artifacts, not source)
+Launch26_Deep_Explanation.pdf
