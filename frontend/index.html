@@ -824,6 +824,258 @@ tr.total-row td {
   95%  { top: 100%; opacity: 0.3; }
   100% { top: 100%; opacity: 0; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   ROUTE ANALYSIS MODAL
+═══════════════════════════════════════════════════════════════════ */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 800;
+  background: rgba(2,4,8,0.85);
+  backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.3s;
+}
+.modal-overlay.open { opacity: 1; pointer-events: all; }
+
+.modal-box {
+  width: 92vw; max-width: 1100px;
+  max-height: 88vh;
+  background: var(--bg-panel);
+  border: 1px solid var(--accent-primary);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 0 60px rgba(0,212,255,0.2);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+  animation: modalIn 0.3s ease;
+}
+@keyframes modalIn {
+  from { transform: scale(0.95) translateY(10px); opacity: 0; }
+  to   { transform: scale(1) translateY(0); opacity: 1; }
+}
+
+.modal-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--border-bright);
+  background: linear-gradient(180deg, rgba(0,212,255,0.05), transparent);
+  flex-shrink: 0;
+}
+.modal-title {
+  font-family: var(--font-hud); font-size: 13px; font-weight: 700;
+  color: var(--accent-primary); letter-spacing: 2px;
+  flex: 1;
+}
+.modal-close {
+  width: 28px; height: 28px;
+  border: 1px solid var(--border-bright); border-radius: 50%;
+  background: var(--bg-card); color: var(--text-muted);
+  cursor: pointer; font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.modal-close:hover { border-color: var(--accent-red); color: var(--accent-red); }
+
+.modal-tabs {
+  display: flex; gap: 0;
+  border-bottom: 1px solid var(--border-dim);
+  flex-shrink: 0; overflow-x: auto;
+}
+.modal-tab {
+  padding: 10px 18px;
+  font-family: var(--font-hud); font-size: 9px; font-weight: 600;
+  color: var(--text-muted); letter-spacing: 1.5px; text-transform: uppercase;
+  border: none; background: none; cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s; white-space: nowrap;
+}
+.modal-tab:hover { color: var(--accent-primary); }
+.modal-tab.active {
+  color: var(--accent-primary);
+  border-bottom-color: var(--accent-primary);
+  background: rgba(0,212,255,0.04);
+}
+
+.modal-body {
+  flex: 1; overflow-y: auto; padding: 18px 22px;
+}
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* Analysis cards */
+.ana-section { margin-bottom: 20px; }
+.ana-section-title {
+  font-family: var(--font-hud); font-size: 9px; font-weight: 600;
+  color: var(--accent-cyan, var(--accent-secondary)); letter-spacing: 2px;
+  text-transform: uppercase; margin-bottom: 10px;
+  padding-bottom: 6px; border-bottom: 1px solid var(--border-dim);
+  display: flex; align-items: center; gap: 8px;
+}
+
+.optimality-box {
+  background: rgba(0,255,136,0.05);
+  border: 1px solid rgba(0,255,136,0.25);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  font-size: 11px; line-height: 1.7; color: var(--text-main);
+}
+.optimality-box b { color: var(--accent-green); }
+.optimality-box code {
+  font-family: var(--font-code); font-size: 10px;
+  color: var(--accent-primary);
+  background: rgba(0,212,255,0.08);
+  padding: 1px 5px; border-radius: 3px;
+}
+
+.paths-list { display: flex; flex-direction: column; gap: 8px; }
+.path-card {
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bg-card);
+  transition: border-color 0.2s;
+}
+.path-card.optimal {
+  border-color: var(--accent-green);
+  background: rgba(0,255,136,0.04);
+}
+.path-card.infeasible {
+  border-color: var(--accent-red);
+  background: rgba(255,71,87,0.04);
+  opacity: 0.6;
+}
+.path-rank {
+  font-family: var(--font-hud); font-size: 18px; font-weight: 800;
+  color: var(--text-dim); width: 28px; flex-shrink: 0;
+}
+.path-card.optimal .path-rank { color: var(--accent-green); }
+.path-nodes {
+  display: flex; align-items: center; gap: 4px; flex: 1; flex-wrap: wrap;
+}
+.path-node-chip {
+  font-family: var(--font-code); font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(0,212,255,0.2);
+  color: var(--accent-primary);
+  background: rgba(0,212,255,0.06);
+}
+.path-card.optimal .path-node-chip { border-color: rgba(0,255,136,0.3); color: var(--accent-green); }
+.path-arrow-sm { color: var(--text-dim); font-size: 10px; }
+.path-latency {
+  font-family: var(--font-hud); font-size: 12px; font-weight: 600;
+  white-space: nowrap;
+}
+.path-card.optimal .path-latency { color: var(--accent-green); }
+.path-badge {
+  font-family: var(--font-hud); font-size: 8px; font-weight: 700;
+  padding: 2px 7px; border-radius: 10px; letter-spacing: 1px;
+  text-transform: uppercase; white-space: nowrap;
+}
+.path-badge.opt-badge  { background: rgba(0,255,136,0.15); color: var(--accent-green); border: 1px solid rgba(0,255,136,0.3); }
+.path-badge.sub-badge  { background: rgba(74,101,128,0.15); color: var(--text-muted); border: 1px solid var(--border-dim); }
+.path-badge.inf-badge  { background: rgba(255,71,87,0.15);  color: var(--accent-red);  border: 1px solid rgba(255,71,87,0.3); }
+
+/* Constraint table */
+.ctable { width: 100%; border-collapse: collapse; font-size: 10px; }
+.ctable th {
+  font-family: var(--font-hud); font-size: 8px; color: var(--text-muted);
+  letter-spacing: 1px; text-transform: uppercase;
+  padding: 7px 10px; border-bottom: 1px solid var(--border-dim);
+  text-align: left; white-space: nowrap;
+  background: var(--bg-card); position: sticky; top: 0; z-index: 1;
+}
+.ctable td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border-dim);
+  font-family: var(--font-code); white-space: nowrap;
+}
+.ctable tr:hover td { background: var(--bg-hover); }
+.ctable .ok   { color: var(--accent-green); }
+.ctable .over { color: var(--accent-red); }
+.ctable .eq-cell { color: var(--accent-purple); font-size: 9px; white-space: normal; }
+
+/* Math hop cards */
+.hop-math-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+.hop-math-title {
+  font-family: var(--font-hud); font-size: 11px; font-weight: 700;
+  color: var(--accent-primary); margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.hop-math-title .hm-badge {
+  font-size: 9px; padding: 2px 8px;
+  background: rgba(0,212,255,0.1);
+  border: 1px solid rgba(0,212,255,0.2);
+  border-radius: 10px;
+}
+.eq-block {
+  background: rgba(4,8,16,0.8);
+  border: 1px solid var(--border-dim);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin-top: 8px;
+}
+.eq-block-title {
+  font-family: var(--font-hud); font-size: 8px;
+  color: var(--text-muted); letter-spacing: 2px;
+  text-transform: uppercase; margin-bottom: 6px;
+}
+.eq-formula {
+  font-family: var(--font-code); font-size: 10px;
+  color: var(--accent-orange); line-height: 1.8;
+}
+.eq-values {
+  font-family: var(--font-code); font-size: 10px;
+  color: var(--text-main); line-height: 1.8; margin-top: 4px;
+}
+.eq-result {
+  font-family: var(--font-code); font-size: 11px; font-weight: 600;
+  color: var(--accent-green); margin-top: 6px;
+  padding-top: 6px; border-top: 1px solid var(--border-dim);
+}
+.eq-grid {
+  display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;
+  margin-top: 8px;
+}
+@media (max-width: 700px) { .eq-grid { grid-template-columns: 1fr; } }
+
+.enc-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-top: 6px; font-family: var(--font-code); font-size: 10px;
+}
+.enc-chip {
+  padding: 3px 10px; border-radius: 10px;
+  border: 1px solid var(--border-dim);
+  background: rgba(167,139,250,0.08);
+  color: var(--accent-purple);
+}
+.enc-arrow { color: var(--text-dim); }
+
+/* Why button */
+.btn-why {
+  background: rgba(0,212,255,0.08);
+  border: 1px solid var(--accent-primary);
+  border-radius: var(--radius-md);
+  color: var(--accent-primary);
+  font-family: var(--font-hud);
+  font-size: 9px; font-weight: 600;
+  letter-spacing: 1px; text-transform: uppercase;
+  padding: 6px 12px; cursor: pointer;
+  display: none; align-items: center; gap: 6px;
+  transition: all 0.2s; margin-top: 8px; width: 100%;
+  justify-content: center;
+}
+.btn-why:hover { background: rgba(0,212,255,0.15); box-shadow: var(--glow-blue); }
+.btn-why.visible { display: flex; }
 </style>
 </head>
 <body>
@@ -997,6 +1249,7 @@ tr.total-row td {
           <div class="ll-item"><div class="ll-dot" style="background:var(--accent-green)"></div><span id="ll-void">Void</span></div>
         </div>
       </div>
+      <button class="btn-why" id="btn-why-optimal">🔬 Why Is This The Optimal Path?</button>
     </div>
 
     <!-- Chaos Controls -->
@@ -1028,6 +1281,88 @@ tr.total-row td {
       <div class="btn-row">
         <button class="btn btn-danger" id="btn-kill-link">✂ Kill Link</button>
         <button class="btn btn-ghost"  id="btn-restore">↺ Restore All</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ ROUTE ANALYSIS MODAL ════════════════════════════════════ -->
+  <div class="modal-overlay" id="analysis-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-title">🔬 ROUTE ANALYSIS — WHY IS THIS PATH OPTIMAL?</div>
+        <button class="modal-close" id="modal-close-btn">✕</button>
+      </div>
+
+      <div class="modal-tabs">
+        <button class="modal-tab active" data-tab="optimality">📊 Optimality Proof</button>
+        <button class="modal-tab" data-tab="constraints">⚠ Constraint Analysis</button>
+        <button class="modal-tab" data-tab="math">📐 Hop-by-Hop Math</button>
+        <button class="modal-tab" data-tab="encoding">🔢 Encoding</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Tab 1: Optimality Proof -->
+        <div class="tab-panel active" id="tab-optimality">
+          <div class="ana-section">
+            <div class="ana-section-title">⚡ Dijkstra's Algorithm Result</div>
+            <div class="optimality-box" id="opt-reason">Loading...</div>
+          </div>
+          <div class="ana-section">
+            <div class="ana-section-title">📋 All Paths Considered (Ranked by Latency)</div>
+            <div class="paths-list" id="paths-list"></div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Constraint Analysis -->
+        <div class="tab-panel" id="tab-constraints">
+          <div class="ana-section">
+            <div class="ana-section-title">🚧 Void Hop Constraint — All Planet Pairs</div>
+            <p style="font-size:10px; color:var(--text-muted); margin-bottom:10px; line-height:1.6;">
+              Rule: A single void hop <b>cannot exceed L<sub>MAX</sub> = 50,000,000 km</b>.
+              If L &gt; L<sub>MAX</sub>, that direct link does not exist and the router must find a relay path.
+              Formula: <code style="font-family:var(--font-code);color:var(--accent-orange);font-size:10px;">L = √((x₂−x₁)²+(y₂−y₁)²) × S − (R₁+h₁) − (R₂+h₂)</code>
+            </p>
+            <div style="overflow-x:auto;">
+              <table class="ctable" id="constraint-table">
+                <thead>
+                  <tr>
+                    <th>From</th><th>To</th>
+                    <th>Grid Dist</th><th>Center Dist (km)</th>
+                    <th>−(R₁+h₁)</th><th>−(R₂+h₂)</th>
+                    <th>L (km)</th><th>L_MAX</th>
+                    <th>Status</th><th>Tv (s)</th>
+                  </tr>
+                </thead>
+                <tbody id="constraint-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Hop Math -->
+        <div class="tab-panel" id="tab-math">
+          <div class="ana-section">
+            <div class="ana-section-title">📐 Per-Hop Mathematical Breakdown (Optimal Path)</div>
+            <p style="font-size:10px;color:var(--text-muted);margin-bottom:14px;line-height:1.6;">
+              All values derived directly from <code style="color:var(--accent-primary);font-family:var(--font-code);">universe-config.json</code>.
+              No constants are hardcoded — every value traced to its config field.
+            </p>
+            <div id="hop-math-list"></div>
+          </div>
+        </div>
+
+        <!-- Tab 4: Encoding -->
+        <div class="tab-panel" id="tab-encoding">
+          <div class="ana-section">
+            <div class="ana-section-title">🔢 Codex (Base-N) Encoding Per Hop</div>
+            <p style="font-size:10px;color:var(--text-muted);margin-bottom:14px;line-height:1.6;">
+              Each planet receives data in its own numerical base (codex).
+              Before each void hop, the sender converts ASCII bytes to the next planet's base.
+              On arrival, the receiver decodes back to ASCII for internal routing.
+            </p>
+            <div id="encoding-list"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -1726,12 +2061,14 @@ document.getElementById('btn-route').onclick = async () => {
     renderRoutePath(data.path);
     document.getElementById('rsm-latency').textContent = data.latency.toFixed(3) + ' s';
     document.getElementById('rsm-hops').textContent = data.path.length - 1;
+    document.getElementById('btn-why-optimal').classList.add('visible');
     addLog('info', `Route found: ${data.path.join(' → ')} (${data.latency.toFixed(3)} s)`);
     showToast(`Route found: ${data.path.join(' → ')}`, 'success');
   } else {
     currentRoute = [];
     setStatusBadge('undeliverable');
     renderRoutePath([]);
+    document.getElementById('btn-why-optimal').classList.remove('visible');
     addLog('send', 'No route found — void distance exceeds limit or nodes are dead');
     showToast('No valid route found!', 'error');
   }
@@ -1789,9 +2126,11 @@ document.getElementById('btn-send').onclick = async () => {
     }
 
     showToast(`Delivered! Total latency: ${data.total_latency.toFixed(3)} s`, 'success');
+    document.getElementById('btn-why-optimal').classList.add('visible');
   } else {
     setStatusBadge('undeliverable');
     renderRoutePath([]);
+    document.getElementById('btn-why-optimal').classList.remove('visible');
     addLog('send', `Transmission FAILED: ${data.reason || 'No route available'}`);
     showToast('Transmission failed — no route available', 'error');
   }
@@ -1835,6 +2174,272 @@ document.getElementById('btn-restore').onclick = async () => {
   addLog('info', '🟢 Network fully restored — all nodes and links ONLINE');
   showToast('Network restored!', 'success');
 };
+
+/* ═══════════════════════════════════════════════════════════════════
+   ROUTE ANALYSIS MODAL
+═══════════════════════════════════════════════════════════════════ */
+
+// Tab switching
+document.querySelectorAll('.modal-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// Open / close
+document.getElementById('modal-close-btn').onclick = () =>
+  document.getElementById('analysis-modal').classList.remove('open');
+document.getElementById('analysis-modal').addEventListener('click', e => {
+  if (e.target === e.currentTarget)
+    e.currentTarget.classList.remove('open');
+});
+
+document.getElementById('btn-why-optimal').onclick = async () => {
+  const src = document.getElementById('sel-source').value;
+  const dst = document.getElementById('sel-dest').value;
+  if (!src || !dst || src === dst) {
+    showToast('Select source and destination first', 'error');
+    return;
+  }
+  // Open modal immediately with loading state
+  document.getElementById('analysis-modal').classList.add('open');
+  document.getElementById('opt-reason').innerHTML = '<span style="color:var(--text-muted)">Running Dijkstra analysis...</span>';
+  document.getElementById('paths-list').innerHTML = '';
+  document.getElementById('constraint-tbody').innerHTML = '';
+  document.getElementById('hop-math-list').innerHTML = '';
+  document.getElementById('encoding-list').innerHTML = '';
+
+  // Reset tabs to first
+  document.querySelectorAll('.modal-tab').forEach((t,i) => t.classList.toggle('active', i===0));
+  document.querySelectorAll('.tab-panel').forEach((p,i) => p.classList.toggle('active', i===0));
+
+  const data = await api('/api/route_analysis', 'POST', {source: src, destination: dst});
+  if (!data || data.error) {
+    document.getElementById('opt-reason').innerHTML = `<span style="color:var(--accent-red)">Error: ${data?.error || 'Unknown'}</span>`;
+    return;
+  }
+
+  renderOptimalityTab(data);
+  renderConstraintTab(data);
+  renderMathTab(data);
+  renderEncodingTab(data);
+};
+
+function renderOptimalityTab(data) {
+  // Reason box
+  const optBox = document.getElementById('opt-reason');
+  const pathStr = data.optimal_path ? `<code>${data.optimal_path.join(' → ')}</code>` : 'None';
+  const lat     = data.optimal_latency ? `<b>${data.optimal_latency.toFixed(4)} s</b> (${(data.optimal_latency/60).toFixed(2)} min)` : '<span style="color:var(--accent-red)">UNDELIVERABLE</span>';
+
+  optBox.innerHTML = `
+    <div style="margin-bottom:8px;">
+      <b>Optimal Path:</b> ${pathStr}<br>
+      <b>Total Latency:</b> ${lat}<br>
+      <b>Hops:</b> ${data.optimal_path ? data.optimal_path.length - 1 : 0}
+    </div>
+    <div style="border-top:1px solid rgba(0,255,136,0.15);padding-top:8px;margin-top:4px;">
+      ${data.optimality_reason}
+    </div>
+    <div style="margin-top:8px; color:var(--text-muted); font-size:10px;">
+      <b style="color:var(--accent-secondary)">Total paths explored:</b> ${data.total_paths_found} &nbsp;|&nbsp;
+      <b style="color:var(--accent-green)">Feasible:</b> ${data.feasible_paths_count} &nbsp;|&nbsp;
+      <b style="color:var(--accent-red)">Blocked by constraint:</b> ${data.infeasible_paths_count}
+    </div>
+  `;
+
+  // Paths list
+  const list = document.getElementById('paths-list');
+  if (!data.all_paths.length) {
+    list.innerHTML = '<div style="color:var(--text-muted);font-size:11px;padding:10px;">No paths found.</div>';
+    return;
+  }
+
+  list.innerHTML = data.all_paths.map((p, idx) => {
+    const cls    = p.is_optimal ? 'optimal' : (p.feasible ? '' : 'infeasible');
+    const badge  = p.is_optimal ? '<span class="path-badge opt-badge">★ Optimal</span>'
+                 : p.feasible   ? '<span class="path-badge sub-badge">Suboptimal</span>'
+                 :                '<span class="path-badge inf-badge">✗ Blocked</span>';
+    const latStr = p.feasible ? `${p.latency.toFixed(4)} s` : 'INFEASIBLE';
+    const diff   = (p.feasible && !p.is_optimal && data.optimal_latency)
+                   ? `<span style="color:var(--accent-orange);font-size:9px;"> (+${(p.latency - data.optimal_latency).toFixed(4)} s)</span>` : '';
+    const nodes  = p.path.map(n => `<span class="path-node-chip">${n}</span>`).join('<span class="path-arrow-sm">→</span>');
+    return `
+      <div class="path-card ${cls}">
+        <div class="path-rank">${p.feasible ? '#'+(idx+1) : '✗'}</div>
+        <div class="path-nodes">${nodes}</div>
+        <div class="path-latency">${latStr}${diff}</div>
+        <div>${badge}</div>
+      </div>`;
+  }).join('');
+}
+
+function renderConstraintTab(data) {
+  const tbody = document.getElementById('constraint-tbody');
+  tbody.innerHTML = data.constraint_analysis.map(pair => {
+    const cls = pair.feasible ? 'ok' : 'over';
+    const icon = pair.feasible ? '✓ OK' : '✗ BLOCKED';
+    const tvStr = pair.feasible && pair.tv ? pair.tv.Tv_s.toFixed(4) + ' s' : '—';
+    return `
+      <tr>
+        <td class="td-planet">${pair.from}</td>
+        <td class="td-planet">${pair.to}</td>
+        <td>(${pair.x1},${pair.y1})→(${pair.x2},${pair.y2})<br><span style="color:var(--text-dim);font-size:9px;">Δ=${pair.grid_dist} units</span></td>
+        <td>${pair.center_km.toLocaleString()} km</td>
+        <td style="color:var(--accent-orange);">−${pair.shell1_km.toLocaleString()} km</td>
+        <td style="color:var(--accent-orange);">−${pair.shell2_km.toLocaleString()} km</td>
+        <td class="${cls}" style="font-weight:600;">${pair.L_km.toLocaleString()} km</td>
+        <td style="color:var(--text-muted);">50,000,000 km</td>
+        <td class="${cls}" style="font-weight:700;">${icon}${!pair.feasible ? '<br><span style="font-size:9px;">Over by '+pair.over_by_km.toLocaleString()+' km</span>' : ''}</td>
+        <td>${tvStr}</td>
+      </tr>`;
+  }).join('');
+}
+
+function renderMathTab(data) {
+  const container = document.getElementById('hop-math-list');
+  if (!data.hop_math || !data.hop_math.length) {
+    container.innerHTML = '<div style="color:var(--text-muted)">No route calculated.</div>';
+    return;
+  }
+
+  const C = data.constants.C, S = data.constants.S, F = data.constants.F, DT = data.constants.DT;
+
+  container.innerHTML = data.hop_math.map(h => {
+    const vd  = h.void_distance;
+    const tv  = h.void_travel;
+    const tpd = h.planet_transit;
+
+    return `
+    <div class="hop-math-card">
+      <div class="hop-math-title">
+        HOP ${h.hop}: ${h.from} → ${h.to}
+        <span class="hm-badge">Base ${h.void_distance.feasible ? '✓ Feasible' : '✗ Blocked'}</span>
+      </div>
+
+      <div class="eq-grid">
+        <!-- Void Distance -->
+        <div class="eq-block">
+          <div class="eq-block-title">① Void Distance L</div>
+          <div class="eq-formula">L = √((x₂−x₁)²+(y₂−y₁)²)×S − (R₁+h₁) − (R₂+h₂)</div>
+          <div class="eq-values">
+            Δx=${vd.dx}, Δy=${vd.dy}<br>
+            Grid dist = √(${vd.dx}²+${vd.dy}²) = ${vd.grid_dist} units<br>
+            Center = ${vd.grid_dist} × ${S.toLocaleString()} = ${vd.center_km.toLocaleString()} km<br>
+            −(R₁+h₁) = −${vd.shell1_km.toLocaleString()} km<br>
+            −(R₂+h₂) = −${vd.shell2_km.toLocaleString()} km
+          </div>
+          <div class="eq-result">L = ${vd.L_km.toLocaleString()} km</div>
+        </div>
+
+        <!-- Void Travel Time -->
+        <div class="eq-block">
+          <div class="eq-block-title">② Void Travel Time Tv</div>
+          <div class="eq-formula">Tv = [(h₁×n₁) + (h₂×n₂) + L] / c</div>
+          <div class="eq-values">
+            h₁×n₁ = ${tv.h1}×${tv.n1} = ${tv.h1n1} km<br>
+            h₂×n₂ = ${tv.h2}×${tv.n2} = ${tv.h2n2} km<br>
+            L = ${vd.L_km.toLocaleString()} km<br>
+            Numerator = ${tv.numerator_km.toLocaleString()} km<br>
+            c = ${C.toLocaleString()} km/s
+          </div>
+          <div class="eq-result">Tv = ${tv.Tv_s.toFixed(6)} s &nbsp;|&nbsp; Atm: ${tv.atm_s.toFixed(6)} s &nbsp;|&nbsp; Vac: ${tv.vac_s.toFixed(6)} s</div>
+        </div>
+
+        <!-- Planet Transit -->
+        <div class="eq-block">
+          <div class="eq-block-title">③ Planet Transit Time Tp</div>
+          <div class="eq-formula">Tp = (2π×r×s)/(N×f×c) + m×Δt</div>
+          <div class="eq-values">
+            Entry tower T${tpd.entry_tower} → Exit tower T${tpd.exit_tower}<br>
+            Arc segments s = ${tpd.segments}<br>
+            Towers hit m = ${tpd.towers_hit}<br>
+            Arc = ${tpd.arc_km.toFixed(2)} km<br>
+            Fiber speed = ${F}×${C.toLocaleString()} = ${(F*C).toLocaleString()} km/s
+          </div>
+          <div class="eq-result">
+            Fiber: ${tpd.fiber_s.toFixed(6)} s &nbsp;|&nbsp; Tower: ${tpd.tower_s.toFixed(6)} s<br>
+            Tp = ${tpd.total_s.toFixed(6)} s
+          </div>
+        </div>
+      </div>
+
+      <div class="eq-block" style="margin-top:8px;">
+        <div class="eq-block-title">④ Hop Total Latency</div>
+        <div class="eq-formula">Hop = Tp + Tv</div>
+        <div class="eq-values">
+          Tp = ${tpd.total_s.toFixed(6)} s &nbsp;+&nbsp; Tv = ${tv.Tv_s.toFixed(6)} s
+        </div>
+        <div class="eq-result">Hop ${h.hop} Total = ${(tpd.total_s + tv.Tv_s).toFixed(6)} s</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderEncodingTab(data) {
+  const container = document.getElementById('encoding-list');
+  if (!data.hop_math || !data.hop_math.length) {
+    container.innerHTML = '<div style="color:var(--text-muted)">No route calculated.</div>';
+    return;
+  }
+
+  // Helper to convert int to base-N
+  function toBase(n, base) {
+    const DIGITS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    if (n === 0) return '0';
+    let r = '';
+    while (n > 0) { r = DIGITS[n % base] + r; n = Math.floor(n / base); }
+    return r;
+  }
+
+  const sampleMsg = 'Hello';
+  container.innerHTML = `
+    <div style="margin-bottom:14px; font-size:10px; color:var(--text-muted);">
+      Sample message: <code style="color:var(--accent-primary);font-family:var(--font-code);">"${sampleMsg}"</code>
+    </div>
+  ` + data.hop_math.map(h => {
+    const enc = h.encoding;
+    const samples = [...sampleMsg].map(ch => {
+      const ascii = ch.charCodeAt(0);
+      const b_from = enc.source_codex;
+      const b_to   = enc.target_codex;
+      return `
+        <div style="background:var(--bg-card);border:1px solid var(--border-dim);border-radius:6px;padding:8px 12px;font-family:var(--font-code);font-size:10px;">
+          <span style="color:var(--text-bright);">'${ch}'</span>
+          <span style="color:var(--text-dim);"> ASCII=${ascii}</span>
+          <span class="enc-arrow"> → </span>
+          <span class="enc-chip">Base ${b_from}: ${toBase(ascii, b_from)}</span>
+          <span class="enc-arrow"> → </span>
+          <span class="enc-chip" style="border-color:rgba(0,255,136,0.3);background:rgba(0,255,136,0.06);color:var(--accent-green);">Base ${b_to}: ${toBase(ascii, b_to)}</span>
+          <span class="enc-arrow"> → </span>
+          <span style="color:var(--text-bright);">ASCII ${ascii} = '${ch}' ✓</span>
+        </div>`;
+    }).join('');
+
+    return `
+    <div class="hop-math-card" style="margin-bottom:14px;">
+      <div class="hop-math-title">
+        HOP ${h.hop}: ${h.from} (Base ${enc.source_codex}) → ${h.to} (Base ${enc.target_codex})
+      </div>
+      <div style="font-size:10px;color:var(--text-muted);margin-bottom:10px;line-height:1.6;">
+        The sender (<b style="color:var(--accent-primary);">${h.from}</b>, codex Base ${enc.source_codex}) converts each ASCII character
+        to <b style="color:var(--accent-green);">Base ${enc.target_codex}</b> — the codex of the receiver
+        (<b style="color:var(--accent-primary);">${h.to}</b>) — before sending over the void laser.
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;">${samples}</div>
+      <div class="eq-block" style="margin-top:10px;">
+        <div class="eq-block-title">Rule</div>
+        <div class="eq-formula">encoded[i] = ASCII(char[i]) converted to Base ${enc.target_codex}</div>
+        <div class="eq-values">
+          On receipt, ${h.to} converts Base ${enc.target_codex} → decimal ASCII → original character.<br>
+          Data integrity is preserved across every hop.
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
 
 /* ═══════════════════════════════════════════════════════════════════
    INIT
