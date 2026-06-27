@@ -475,3 +475,21 @@ td { color: var(--text); }
     scroll-behavior: auto !important;
   }
 }
+.button.download {
+  margin-top: 12px;
+  border-color: oklch(0.72 0.14 205);
+  background: oklch(0.26 0.065 225);
+  color: var(--text);
+}
+.button.download:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.packet-id {
+  margin-top: 7px;
+  color: var(--dim);
+  font: 11px var(--mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

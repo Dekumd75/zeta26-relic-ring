@@ -41,8 +41,33 @@ function formatKm(km) {
   return `${Math.round(km).toLocaleString()} km`;
 }
 
-function towerNumber(towerId) {
-  return Number(String(towerId).replace(/^T/i, ""));
+function packetToRouteResult(packet) {
+  return {
+    status: packet.status,
+    origin_id: packet.origin?.planet,
+    destination_id: packet.destination?.planet,
+    route: packet.route || [],
+    total_latency_ms: packet.total_latency_ms,
+    latency_breakdown: {
+      void_delay_ms: packet.latency_breakdown_ms?.void || 0,
+      atmosphere_delay_ms: packet.latency_breakdown_ms?.atmosphere || 0,
+      fiber_delay_ms: packet.latency_breakdown_ms?.fiber || 0,
+      tower_processing_delay_ms: packet.latency_breakdown_ms?.tower_processing || 0,
+    },
+    hop_log: (packet.hop_log || []).map((hop) => ({
+      hop_number: hop.hop_index,
+      from_planet: hop.from_planet,
+      to_planet: hop.to_planet,
+      send_tower: hop.send_tower,
+      receive_tower: hop.receive_tower,
+      encoded_payload_for_next_planet: String(hop.payload_encoded_for_next || "").split(" ").filter(Boolean),
+      to_codex: hop.to_codex,
+      void_distance_km: hop.void_distance_km,
+      latency_ms: hop.latency_ms?.total || 0,
+      latency_breakdown: hop.latency_ms || {},
+      status: "sent",
+    })),
+  };
 }
 
 function routePairs(route) {
@@ -439,7 +464,7 @@ function Controls({ universe, selected, setSelected, fromTower, setFromTower, me
   );
 }
 
-function Summary({ routeResult, packetsSent }) {
+function Summary({ routeResult, packetsSent, packetResult, onDownloadPacket }) {
   const breakdown = routeResult?.latency_breakdown || {};
   const total = routeResult?.total_latency_ms || 0;
   const values = [
@@ -469,6 +494,10 @@ function Summary({ routeResult, packetsSent }) {
       <div className="latency-legend">
         {values.map(([label, value, cls]) => <span key={label}><i className={cls} />{label}: {formatMs(value)}</span>)}
       </div>
+      <button className="button download full" type="button" onClick={onDownloadPacket} disabled={!packetResult?.packet_id}>
+        Download Final Packet JSON
+      </button>
+      {packetResult?.packet_id ? <div className="packet-id">packet_id: {packetResult.packet_id}</div> : null}
     </section>
   );
 }
@@ -528,6 +557,7 @@ export default function App() {
   const [fromTower, setFromTower] = useState(0);
   const [message, setMessage] = useState(DEFAULT_MESSAGE);
   const [routeResult, setRouteResult] = useState(null);
+  const [packetResult, setPacketResult] = useState(null);
   const [logs, setLogs] = useState([]);
   const [busy, setBusy] = useState(false);
   const [packetsSent, setPacketsSent] = useState(0);
@@ -552,22 +582,32 @@ export default function App() {
     try {
       validateSelection();
       setBusy(true);
-      const result = await postJson("/api/routes/shortest-path", {
-        from_planet: selected.from,
-        from_tower: fromTower,
-        to_planet: selected.to,
-        message,
-      });
-      setRouteResult(result);
-      if (result.status === "delivered") {
+      const result = sendPacket
+        ? await postJson("/api/packets/send", {
+            from_planet: selected.from,
+            from_tower: `T${fromTower}`,
+            to_planet: selected.to,
+            message,
+            disabled_planets: [],
+          })
+        : await postJson("/api/routes/shortest-path", {
+            from_planet: selected.from,
+            from_tower: fromTower,
+            to_planet: selected.to,
+            message,
+          });
+      const uiResult = result.packet_id ? packetToRouteResult(result) : result;
+      setRouteResult(uiResult);
+      setPacketResult(result.packet_id ? result : null);
+      if (uiResult.status === "delivered") {
         setPacketKey((key) => key + 1);
         if (sendPacket) setPacketsSent((value) => value + 1);
-        addLog("route", `Route ${result.route.join(" -> ")} delivered in ${formatMs(result.total_latency_ms)}.`);
-        result.hop_log.forEach((hop) => {
+        addLog("route", `Route ${uiResult.route.join(" -> ")} delivered in ${formatMs(uiResult.total_latency_ms)}.`);
+        uiResult.hop_log.forEach((hop) => {
           addLog("send", `${hop.from_planet} ${hop.send_tower} -> ${hop.to_planet} ${hop.receive_tower}; Base ${hop.to_codex}.`);
         });
       } else {
-        addLog("error", result.reason || "No valid route found.");
+        addLog("error", uiResult.reason || "No valid route found.");
       }
     } catch (err) {
       addLog("error", err.message);
@@ -582,6 +622,7 @@ export default function App() {
       await action();
       await reload();
       setRouteResult(null);
+      setPacketResult(null);
     } catch (err) {
       addLog("error", err.message);
     } finally {
@@ -597,6 +638,17 @@ export default function App() {
     ]);
     addLog("route", "Network restored.");
   }), [addLog, mutateFailure]);
+
+  const downloadPacket = useCallback(() => {
+    if (!packetResult?.packet_id) return;
+    const href = `${API_BASE}/api/packets/${packetResult.packet_id}/download`;
+    const link = document.createElement("a");
+    link.href = href;
+    link.download = `packet_${packetResult.packet_id}.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }, [packetResult]);
 
   const route = routeResult?.status === "delivered" ? routeResult.route : [];
   const activePlanets = universe?.planets?.filter((planet) => !planet.dead).length || 0;
@@ -640,7 +692,7 @@ export default function App() {
       </main>
 
       <footer className="inspector">
-        <Summary routeResult={routeResult} packetsSent={packetsSent} />
+        <Summary routeResult={routeResult} packetsSent={packetsSent} packetResult={packetResult} onDownloadPacket={downloadPacket} />
         <HopTable hops={routeResult?.hop_log || []} />
         <EventLog logs={logs} />
       </footer>

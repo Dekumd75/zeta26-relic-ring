@@ -4,9 +4,9 @@ Interplanetary Routing Simulator ΓÇö Backend
 IEEE CS Chapter, University of Kelaniya
 """
 
-import json, math, heapq, time, os
+import json, math, heapq, time, os, uuid
 from datetime import datetime, timezone
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, Response, stream_with_context
 
 BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH  = os.path.join(BASE_DIR, 'universe-config.json')
@@ -24,6 +24,7 @@ meta         = universe['universe_metadata']
 planets      = {p['id']: p for p in universe['nodes']}
 dead_planets = set()
 dead_links   = set()
+PACKET_STORE = {}
 
 # ΓöÇΓöÇΓöÇ Universe Constants (from config ΓÇö never hardcoded) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 C     = meta['speed_of_light_kms']           # km/s
@@ -549,6 +550,309 @@ def api_route_analysis():
         'infeasible_paths_count': len(all_paths_raw) - len(feasible_paths),
     })
 
+
+def parse_tower_request(value):
+    if isinstance(value, int):
+        return value
+    text = str(value or 'T0').strip().upper()
+    return int(text[1:] if text.startswith('T') else text)
+
+
+def tower_name(index):
+    return f'T{index}'
+
+
+def utc_timestamp():
+    return datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')
+
+
+def calculate_ring_segments(entry_tower_index, exit_tower_index, total_towers):
+    diff = abs(exit_tower_index - entry_tower_index)
+    return min(diff, total_towers - diff)
+
+
+def calculate_internal_latency_ms(planet, entry_tower_index, exit_tower_index):
+    segments = calculate_ring_segments(entry_tower_index, exit_tower_index, planet['active_towers'])
+    fiber_distance_km = (2 * math.pi * planet['radius_km'] * segments) / planet['active_towers']
+    fiber_ms = (fiber_distance_km / (F * C)) * 1000
+    return {
+        'segments': segments,
+        'fiber_distance_km': fiber_distance_km,
+        'fiber_ms': fiber_ms,
+    }
+
+
+def build_graph_with_disabled(disabled_planets):
+    disabled = set(disabled_planets or []) | dead_planets
+    graph = {pid: [] for pid in planets if pid not in disabled}
+    for p1id, p2id, L, t_v in ALL_EDGES:
+        if p1id in disabled or p2id in disabled:
+            continue
+        if frozenset([p1id, p2id]) in dead_links:
+            continue
+        graph[p1id].append((p2id, L, t_v))
+        graph[p2id].append((p1id, L, t_v))
+    return graph
+
+
+def run_packet_dijkstra(source, destination, disabled_planets=None):
+    graph = build_graph_with_disabled(disabled_planets)
+    if source not in graph or destination not in graph:
+        return None, []
+    pq = [(0.0, source, [source], None)]
+    dist = {pid: float('inf') for pid in graph}
+    visited = set()
+    dist[source] = 0.0
+    while pq:
+        latency, current, path, previous = heapq.heappop(pq)
+        if current in visited:
+            continue
+        visited.add(current)
+        if current == destination:
+            return latency, path
+        for neighbor, L, t_v in graph.get(current, []):
+            if neighbor in visited:
+                continue
+            tp_info = tp(planets[current], planets[previous] if previous else None, planets[neighbor])
+            candidate = latency + tp_info['total_s'] + t_v
+            if candidate < dist.get(neighbor, float('inf')):
+                dist[neighbor] = candidate
+                heapq.heappush(pq, (candidate, neighbor, path + [neighbor], current))
+    return None, []
+
+
+def encode_payload(message, codex):
+    return ' '.join(encode_message(message, codex))
+
+
+def create_packet_result(source, from_tower_index, destination, message, disabled_planets=None, store=True):
+    disabled_planets = list(disabled_planets or [])
+    if source not in planets or destination not in planets:
+        return None, ({'error': 'Unknown origin or destination planet'}, 400)
+    if source in disabled_planets or destination in disabled_planets:
+        return None, ({'error': 'Origin or destination planet is disabled'}, 400)
+    if from_tower_index < 0 or from_tower_index >= planets[source]['active_towers']:
+        return None, ({'error': 'Invalid origin tower'}, 400)
+    _, path = run_packet_dijkstra(source, destination, disabled_planets)
+    if not path:
+        return None, ({'error': 'No valid route found with current failures.'}, 404)
+
+    packet_id = str(uuid.uuid4())
+    hop_log = []
+    totals = {'void': 0.0, 'atmosphere': 0.0, 'fiber': 0.0, 'tower_processing': 0.0}
+    entry_tower_index = from_tower_index
+
+    for idx in range(len(path) - 1):
+        from_id, to_id = path[idx], path[idx + 1]
+        from_planet, to_planet = planets[from_id], planets[to_id]
+        send_tower_index = closest_tower(from_planet, to_planet)
+        receive_tower_index = closest_tower(to_planet, from_planet)
+        internal = calculate_internal_latency_ms(from_planet, entry_tower_index, send_tower_index)
+        L = void_distance(from_planet, to_planet)
+        breakdown = void_distance_breakdown(from_planet, to_planet)
+        void_ms = (L / C) * 1000
+        atmosphere_ms = (((from_planet['atmosphere_thickness_km'] * from_planet['refraction_index']) +
+                          (to_planet['atmosphere_thickness_km'] * to_planet['refraction_index'])) / C) * 1000
+        tower_ms = DT * 2
+        total_ms = void_ms + atmosphere_ms + internal['fiber_ms'] + tower_ms
+        encoded = encode_payload(message, to_planet['codex'])
+        totals['void'] += void_ms
+        totals['atmosphere'] += atmosphere_ms
+        totals['fiber'] += internal['fiber_ms']
+        totals['tower_processing'] += tower_ms
+        hop_log.append({
+            'hop_index': idx + 1,
+            'from_planet': from_id,
+            'to_planet': to_id,
+            'send_tower': tower_name(send_tower_index),
+            'receive_tower': tower_name(receive_tower_index),
+            'from_codex': from_planet['codex'],
+            'to_codex': to_planet['codex'],
+            'payload_before': message,
+            'payload_encoded_for_next': encoded,
+            'payload_after_decode': message,
+            'void_distance_km': round(L, 3),
+            'center_distance_km': breakdown['center_km'],
+            'latency_ms': {
+                'void': round(void_ms, 6),
+                'atmosphere': round(atmosphere_ms, 6),
+                'fiber': round(internal['fiber_ms'], 6),
+                'tower_processing': round(tower_ms, 6),
+                'total': round(total_ms, 6),
+            },
+        })
+        entry_tower_index = receive_tower_index
+
+    total_latency_ms = sum(totals.values())
+    packet = {
+        'packet_id': packet_id,
+        'status': 'delivered',
+        'origin': {'planet': source, 'tower': tower_name(from_tower_index)},
+        'destination': {'planet': destination},
+        'original_message': message,
+        'final_message': message,
+        'route': path,
+        'disabled_planets': disabled_planets,
+        'total_latency_ms': round(total_latency_ms, 6),
+        'latency_breakdown_ms': {key: round(value, 6) for key, value in totals.items()},
+        'hop_log': hop_log,
+        'created_at': utc_timestamp(),
+    }
+    if store:
+        PACKET_STORE[packet_id] = packet
+    return packet, None
+
+
+def packet_to_route_response(packet):
+    return {
+        'status': packet['status'],
+        'origin_id': packet['origin']['planet'],
+        'destination_id': packet['destination']['planet'],
+        'route': packet['route'],
+        'route_states': [{'planet': packet['origin']['planet'], 'tower': packet['origin']['tower']}],
+        'total_latency_ms': packet['total_latency_ms'],
+        'latency_breakdown': {
+            'void_delay_ms': packet['latency_breakdown_ms']['void'],
+            'atmosphere_delay_ms': packet['latency_breakdown_ms']['atmosphere'],
+            'fiber_delay_ms': packet['latency_breakdown_ms']['fiber'],
+            'tower_processing_delay_ms': packet['latency_breakdown_ms']['tower_processing'],
+        },
+        'hop_log': [{
+            'hop_number': hop['hop_index'],
+            'from_planet': hop['from_planet'],
+            'to_planet': hop['to_planet'],
+            'send_tower': hop['send_tower'],
+            'receive_tower': hop['receive_tower'],
+            'encoded_payload_for_next_planet': hop['payload_encoded_for_next'].split(),
+            'to_codex': hop['to_codex'],
+            'void_distance_km': hop['void_distance_km'],
+            'latency_ms': hop['latency_ms']['total'],
+            'latency_breakdown': hop['latency_ms'],
+            'status': 'sent',
+        } for hop in packet['hop_log']],
+    }
+
+
+@app.route('/api/packets/send', methods=['POST'])
+def api_packets_send():
+    data = request.json or {}
+    source = data.get('from_planet')
+    destination = data.get('to_planet')
+    message = data.get('message', '')
+    from_tower_index = parse_tower_request(data.get('from_tower', 'T0'))
+    packet, error = create_packet_result(source, from_tower_index, destination, message, data.get('disabled_planets', []), store=True)
+    if error:
+        body, status = error
+        return jsonify(body), status
+    return jsonify(packet)
+
+
+@app.route('/api/packets/<packet_id>/download')
+def api_packet_download(packet_id):
+    packet = PACKET_STORE.get(packet_id)
+    if not packet:
+        return jsonify({'error': 'Packet not found'}), 404
+    return Response(
+        json.dumps(packet, indent=2),
+        mimetype='application/json',
+        headers={'Content-Disposition': f'attachment; filename="packet_{packet_id}.json"'},
+    )
+
+
+@app.route('/api/packets/<packet_id>/logs/stream')
+def api_packet_logs_stream(packet_id):
+    packet = PACKET_STORE.get(packet_id)
+    if not packet:
+        return jsonify({'error': 'Packet not found'}), 404
+
+    def generate():
+        for hop in packet['hop_log']:
+            event = {
+                'packet_id': packet_id,
+                'hop_index': hop['hop_index'],
+                'from_planet': hop['from_planet'],
+                'to_planet': hop['to_planet'],
+                'send_tower': hop['send_tower'],
+                'receive_tower': hop['receive_tower'],
+                'latency_ms': hop['latency_ms'],
+                'payload_encoded_for_next': hop['payload_encoded_for_next'],
+            }
+            yield f"data: {json.dumps(event)}\n\n"
+        yield f"data: {json.dumps({'packet_id': packet_id, 'status': packet['status'], 'total_latency_ms': packet['total_latency_ms']})}\n\n"
+
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
+
+
+@app.route('/api/routes/shortest-path', methods=['POST'])
+def api_routes_shortest_path():
+    data = request.json or {}
+    packet, error = create_packet_result(
+        data.get('from_planet'),
+        parse_tower_request(data.get('from_tower', 'T0')),
+        data.get('to_planet'),
+        data.get('message', 'route probe'),
+        data.get('disabled_planets', []),
+        store=False,
+    )
+    if error:
+        body, status = error
+        if status == 404:
+            return jsonify({'status': 'undeliverable', 'reason': body['error'], 'route': [], 'hop_log': []})
+        return jsonify(body), status
+    return jsonify(packet_to_route_response(packet))
+
+
+@app.route('/api/routes/details')
+def api_routes_details_get():
+    disabled_raw = request.args.get('disabled_planets', '')
+    disabled = [item for item in disabled_raw.split(',') if item]
+    packet, error = create_packet_result(
+        request.args.get('from_planet'),
+        parse_tower_request(request.args.get('from_tower', 'T0')),
+        request.args.get('to_planet'),
+        request.args.get('message', 'route details'),
+        disabled,
+        store=False,
+    )
+    if error:
+        body, status = error
+        return jsonify(body), status
+    return jsonify(packet_to_route_response(packet))
+
+
+@app.route('/api/failures')
+def api_failures():
+    return jsonify({
+        'deactivated_planets': sorted(dead_planets),
+        'deactivated_links': [{'from_planet': sorted(list(link))[0], 'to_planet': sorted(list(link))[1]} for link in dead_links],
+    })
+
+
+@app.route('/api/failures/planets/<planet_id>', methods=['POST', 'DELETE'])
+def api_failure_planet(planet_id):
+    if planet_id not in planets:
+        return jsonify({'error': 'Unknown planet'}), 404
+    if request.method == 'POST':
+        dead_planets.add(planet_id)
+    else:
+        dead_planets.discard(planet_id)
+    return api_failures()
+
+
+@app.route('/api/failures/links', methods=['POST', 'DELETE'])
+def api_failure_link():
+    data = request.json or {}
+    p1 = data.get('from_planet')
+    p2 = data.get('to_planet')
+    if p1 not in planets or p2 not in planets:
+        return jsonify({'error': 'Unknown link'}), 404
+    key = frozenset([p1, p2])
+    if request.method == 'POST':
+        dead_links.add(key)
+    else:
+        dead_links.discard(key)
+    return api_failures()
+
 @app.route('/api/kill_planet', methods=['POST'])
 def api_kill_planet():
     pid = request.json.get('planet')
@@ -576,3 +880,6 @@ if __name__ == '__main__':
     print("Zeta-26 Relic Ring Protocol -- Backend starting...")
     print("Open http://localhost:5000 in your browser")
     app.run(debug=True, port=5000)
+
+
+
