@@ -78,6 +78,12 @@ function routePairs(route) {
   return pairs;
 }
 
+function towerIndex(value) {
+  if (typeof value === "number") return value;
+  const match = String(value || "T0").match(/\d+/);
+  return match ? Number(match[0]) : 0;
+}
+
 function useUniverse() {
   const [universe, setUniverse] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -102,7 +108,7 @@ function useUniverse() {
   return { universe, loading, error, reload: loadUniverse };
 }
 
-function useCanvasScene({ universe, route, packetKey }) {
+function useCanvasScene({ universe, route, hopLog, packetKey }) {
   const canvasRef = useRef(null);
   const viewRef = useRef({ scale: 1, ox: 0, oy: 0, dragging: false, lastX: 0, lastY: 0 });
   const [hovered, setHovered] = useState(null);
@@ -132,10 +138,19 @@ function useCanvasScene({ universe, route, packetKey }) {
     const edges = universe.edges || universe.links || [];
     const planetsById = new Map(planets.map((planet) => [planet.id, planet]));
     const activeRoute = route || [];
+    const activeHops = hopLog || [];
     const activePairs = routePairs(activeRoute);
+    const towerRoles = new Map();
     const startedAt = performance.now();
     let frame = 0;
     let animationId = 0;
+
+    activeHops.forEach((hop, index) => {
+      const sendKey = `${hop.from_planet}:${towerIndex(hop.send_tower)}`;
+      const receiveKey = `${hop.to_planet}:${towerIndex(hop.receive_tower)}`;
+      towerRoles.set(sendKey, { type: "send", label: hop.send_tower, hop: index + 1 });
+      towerRoles.set(receiveKey, { type: "receive", label: hop.receive_tower, hop: index + 1 });
+    });
 
     function resize() {
       const rect = canvas.getBoundingClientRect();
@@ -160,12 +175,28 @@ function useCanvasScene({ universe, route, packetKey }) {
       const cy = (bounds.minY + bounds.maxY) / 2;
       return {
         x: rect.width / 2 + (x - cx) * scale + view.ox,
-        y: rect.height / 2 + (y - cy) * scale + view.oy,
+        y: rect.height / 2 - (y - cy) * scale + view.oy,
       };
     }
 
     function planetRadius(planet) {
       return Math.max(11, Math.min(28, 8 + Math.sqrt(planet.radius_km) / 12));
+    }
+
+    function towerPoint(planet, tower, lift = 8) {
+      const p = project(planet.x, planet.y);
+      const radius = planetRadius(planet);
+      const angle = ((Math.PI * 2) / Math.max(1, planet.active_towers || 1)) * (tower?.idx ?? towerIndex(tower));
+      return {
+        x: p.x + Math.sin(angle) * (radius + lift),
+        y: p.y - Math.cos(angle) * (radius + lift),
+      };
+    }
+
+    function getTowerPoint(planetId, towerName) {
+      const planet = planetsById.get(planetId);
+      if (!planet) return null;
+      return towerPoint(planet, { idx: towerIndex(towerName) }, 9);
     }
 
     function drawEdge(edge) {
@@ -174,12 +205,23 @@ function useCanvasScene({ universe, route, packetKey }) {
       if (!from || !to) return;
       const a = project(from.x, from.y);
       const b = project(to.x, to.y);
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const length = Math.max(1, Math.hypot(dx, dy));
+      const ux = dx / length;
+      const uy = dy / length;
+      const startOffset = planetRadius(from) + 10;
+      const endOffset = planetRadius(to) + 10;
       const pair = [from.id, to.id].sort().join("::");
       const onRoute = activePairs.has(pair);
+      const hasTowerRoute = activeHops.some((hop) => (
+        [hop.from_planet, hop.to_planet].sort().join("::") === pair
+      ));
+      if (onRoute && hasTowerRoute) return;
       ctx.save();
       ctx.beginPath();
-      ctx.moveTo(a.x, a.y);
-      ctx.lineTo(b.x, b.y);
+      ctx.moveTo(a.x + ux * startOffset, a.y + uy * startOffset);
+      ctx.lineTo(b.x - ux * endOffset, b.y - uy * endOffset);
       if (edge.over_limit) {
         ctx.setLineDash([7, 8]);
         ctx.strokeStyle = "rgba(117, 130, 148, 0.32)";
@@ -228,37 +270,99 @@ function useCanvasScene({ universe, route, packetKey }) {
       ctx.font = "10px ui-monospace, SFMono-Regular, Consolas, monospace";
       ctx.fillText(`B${planet.codex} / T${planet.active_towers}`, p.x, p.y + radius + 32);
       for (const tower of planet.towers || []) {
-        const t = project(tower.x, tower.y);
+        const t = towerPoint(planet, tower);
+        const role = towerRoles.get(`${planet.id}:${tower.idx}`);
         ctx.beginPath();
-        ctx.arc(t.x, t.y, 2.6, 0, Math.PI * 2);
-        ctx.fillStyle = dead ? "rgba(255, 77, 109, 0.55)" : "rgba(255, 214, 102, 0.8)";
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(t.x, t.y);
+        ctx.strokeStyle = role
+          ? (role.type === "send" ? "rgba(255, 214, 102, 0.72)" : "rgba(95, 255, 180, 0.72)")
+          : "rgba(170, 204, 226, 0.18)";
+        ctx.lineWidth = role ? 1.4 : 0.7;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, role ? 5.2 : 3.4, 0, Math.PI * 2);
+        ctx.fillStyle = dead
+          ? "rgba(255, 77, 109, 0.55)"
+          : role?.type === "send"
+            ? "rgba(255, 214, 102, 0.96)"
+            : role?.type === "receive"
+              ? "rgba(95, 255, 180, 0.96)"
+              : "rgba(226, 237, 248, 0.82)";
         ctx.fill();
+        ctx.strokeStyle = role ? "rgba(255, 255, 255, 0.86)" : "rgba(255, 255, 255, 0.32)";
+        ctx.lineWidth = role ? 1.5 : 0.8;
+        ctx.stroke();
+        if (role) {
+          ctx.fillStyle = role.type === "send" ? "#ffd666" : "#5fffb4";
+          ctx.font = "700 10px Montserrat, Inter, system-ui, sans-serif";
+          ctx.fillText(`${role.label} ${role.type === "send" ? "SEND" : "RECV"}`, t.x, t.y - 9);
+        }
       }
       ctx.restore();
     }
 
     function drawPacket() {
-      if (activeRoute.length < 2) return;
-      const duration = 1800 + activeRoute.length * 360;
+      const segmentCount = activeHops.length || Math.max(0, activeRoute.length - 1);
+      if (!segmentCount) return;
+      const duration = 1800 + segmentCount * 360;
       const t = ((performance.now() - startedAt) % duration) / duration;
-      const segFloat = t * (activeRoute.length - 1);
-      const seg = Math.min(activeRoute.length - 2, Math.floor(segFloat));
+      const segFloat = t * segmentCount;
+      const seg = Math.min(segmentCount - 1, Math.floor(segFloat));
       const local = segFloat - seg;
+      const hop = activeHops[seg];
       const a = planetsById.get(activeRoute[seg]);
       const b = planetsById.get(activeRoute[seg + 1]);
-      if (!a || !b) return;
-      const pa = project(a.x, a.y);
-      const pb = project(b.x, b.y);
+      const pa = hop ? getTowerPoint(hop.from_planet, hop.send_tower) : (a ? project(a.x, a.y) : null);
+      const pb = hop ? getTowerPoint(hop.to_planet, hop.receive_tower) : (b ? project(b.x, b.y) : null);
+      if (!pa || !pb) return;
       const x = pa.x + (pb.x - pa.x) * local;
       const y = pa.y + (pb.y - pa.y) * local;
+      const angle = Math.atan2(pb.y - pa.y, pb.x - pa.x);
+      const trailX = x - Math.cos(angle) * 16;
+      const trailY = y - Math.sin(angle) * 16;
       ctx.save();
+      ctx.lineCap = "round";
       ctx.beginPath();
-      ctx.arc(x, y, 5, 0, Math.PI * 2);
-      ctx.fillStyle = "#5fffb4";
-      ctx.shadowColor = "rgba(95, 255, 180, 0.9)";
-      ctx.shadowBlur = 18;
+      ctx.moveTo(trailX, trailY);
+      ctx.lineTo(x, y);
+      ctx.strokeStyle = "rgba(255, 236, 130, 0.86)";
+      ctx.shadowColor = "rgba(255, 214, 102, 0.86)";
+      ctx.shadowBlur = 24;
+      ctx.lineWidth = 6;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(x, y, 8, 0, Math.PI * 2);
+      ctx.fillStyle = "#fff6c7";
+      ctx.shadowColor = "rgba(255, 246, 199, 0.95)";
+      ctx.shadowBlur = 28;
       ctx.fill();
+      ctx.strokeStyle = "rgba(3, 18, 32, 0.9)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
       ctx.restore();
+    }
+
+    function drawTowerLinks() {
+      activeHops.forEach((hop) => {
+        const a = getTowerPoint(hop.from_planet, hop.send_tower);
+        const b = getTowerPoint(hop.to_planet, hop.receive_tower);
+        if (!a || !b) return;
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.strokeStyle = "rgba(95, 255, 180, 0.96)";
+        ctx.shadowColor = "rgba(95, 255, 180, 0.52)";
+        ctx.shadowBlur = 14;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        ctx.globalCompositeOperation = "lighter";
+        ctx.strokeStyle = "rgba(255, 214, 102, 0.54)";
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        ctx.restore();
+      });
     }
 
     function draw() {
@@ -277,8 +381,9 @@ function useCanvasScene({ universe, route, packetKey }) {
         ctx.fill();
       }
       edges.forEach(drawEdge);
+      drawTowerLinks();
       planets.forEach(drawPlanet);
-      if (!window.matchMedia("(prefers-reduced-motion: reduce)").matches) drawPacket();
+      drawPacket();
       animationId = requestAnimationFrame(draw);
     }
 
@@ -343,7 +448,7 @@ function useCanvasScene({ universe, route, packetKey }) {
       canvas.removeEventListener("pointerleave", onPointerUp);
       canvas.removeEventListener("wheel", onWheel);
     };
-  }, [universe, bounds, route, packetKey, stars]);
+  }, [universe, bounds, route, hopLog, packetKey, stars]);
 
   const resetView = useCallback(() => {
     viewRef.current = { scale: 1, ox: 0, oy: 0, dragging: false, lastX: 0, lastY: 0 };
@@ -352,8 +457,8 @@ function useCanvasScene({ universe, route, packetKey }) {
   return { canvasRef, hovered, resetView };
 }
 
-function MapPanel({ universe, route, packetKey }) {
-  const { canvasRef, hovered, resetView } = useCanvasScene({ universe, route, packetKey });
+function MapPanel({ universe, route, hopLog, packetKey }) {
+  const { canvasRef, hovered, resetView } = useCanvasScene({ universe, route, hopLog, packetKey });
   return (
     <section className="map-panel" aria-label="Universe map">
       <canvas ref={canvasRef} className="universe-canvas" />
@@ -671,7 +776,7 @@ export default function App() {
 
       {error && <div className="error-banner">{error}</div>}
       <main className="workspace">
-        <MapPanel universe={universe} route={route} packetKey={packetKey} />
+        <MapPanel universe={universe} route={route} hopLog={routeResult?.hop_log || []} packetKey={packetKey} />
         <Controls
           universe={universe}
           selected={selected}

@@ -1,198 +1,273 @@
-# 🌌 ZETA-26 — Relic Ring Protocol
-### Interplanetary Routing Simulator | Launch26 Phase 01
+# ZETA-26 Relic Ring Protocol
 
-> **IEEE CS Chapter — University of Kelaniya**
+An interplanetary packet-routing simulator built for the Launch26 Phase 01 challenge. ZETA-26 models a fictional planetary relay network where messages are routed across planets, encoded per-hop using each planet's codex base, and evaluated using latency components from void travel, atmosphere, fiber transit, and tower processing.
 
----
+## Overview
 
-## 📁 Project Structure
+The system combines a Flask backend with a React/Vite frontend:
 
-```
+- The backend loads all planetary constants from `backend/universe-config.json`.
+- Dijkstra-based routing finds the minimum-latency valid path across the network.
+- Packet transmission records hop-by-hop tower selection, encoded payloads, and latency breakdowns.
+- The frontend visualizes the ZETA-26 map as a 2D X/Y coordinate field with planet towers, active routes, packet animation, failure controls, route telemetry, and event logs.
+
+## Key Features
+
+- Shortest-path routing with current network failure state.
+- Planet-to-planet void-hop validation using a maximum hop distance.
+- Per-hop payload encoding into the destination planet's codex base.
+- Send and receive tower selection for each hop.
+- Latency breakdown across void, atmosphere, fiber, and tower processing.
+- Interactive failure simulation for planets and links.
+- Packet JSON download for delivered transmissions.
+- Canvas-based 2D universe map with tower-to-tower route visualization.
+
+## Project Structure
+
+```text
 zeta26-relic-ring/
 ├── backend/
-│   ├── app.py                 ← Flask server (routing, encoding, latency engine)
-│   ├── universe-config.json   ← Planet configuration (parsed dynamically)
-│   └── requirements.txt       ← Python dependencies
+│   ├── app.py                  # Flask API, routing, encoding, latency logic
+│   ├── requirements.txt        # Python dependencies
+│   ├── universe-config.json    # Source of truth for planet data and constants
+│   └── README.md
 ├── frontend/
-│   └── index.html             ← Full UI (single-file, no build step needed)
-├── README.md
-└── .gitignore
+│   ├── index.html
+│   ├── package.json
+│   ├── package-lock.json
+│   ├── universe-config.json
+│   └── src/
+│       ├── App.jsx             # React application and canvas scene
+│       ├── main.jsx
+│       └── styles.css
+|
+└── README.md
 ```
 
----
+## Tech Stack
 
-## 🚀 Overview
+| Layer | Technology |
+| --- | --- |
+| Backend | Python, Flask |
+| Frontend | React, Vite |
+| Visualization | HTML Canvas |
+| Routing | Dijkstra shortest path |
+| Data format | JSON |
+| Styling | CSS |
 
-ZETA-26 is an **interplanetary network routing simulator** built for the Launch26 Phase 01 challenge. It simulates laser-based packet transmission across 6 planets in the fictional Zeta-26 universe, featuring:
+## Requirements
 
-- **Shortest-path routing** using Dijkstra's algorithm
-- **Base-N encoding** — each planet speaks a unique numerical base (codex)
-- **Precise latency calculation** — void travel, atmospheric refraction, fiber transit & tower delays
-- **Chaos testing** — kill planets or links, watch the network reroute in real time
-- **Live visualizer** — animated space map with flying packet animations
+- Python 3.9 or newer
+- Node.js 18 or newer
+- npm
 
----
+## Setup
 
-## 🪐 The Universe — Zeta-26
-
-| Planet | Codex (Base) | Towers | Radius (km) | Atmosphere (km) |
-|--------|-------------|--------|-------------|-----------------|
-| Aegis  | Base 8      | 8      | 6,371       | 120             |
-| Boreas | Base 5      | 4      | 3,389       | 85              |
-| Dawn   | Base 6      | 6      | 1,500       | 30              |
-| Elysium| Base 10     | 12     | 6,051       | 250             |
-| Fenix  | Base 16     | 4      | 1,200       | 15              |
-| Caelum | Base 14     | 16     | 58,232      | 500             |
-
----
-
-## ⚙️ Setup & Running
-
-### Prerequisites
-- Python 3.9+
-- pip
-
-### Installation
+Install backend dependencies:
 
 ```bash
-# Clone the repository
-git clone https://github.com/YOUR_USERNAME/zeta26-relic-ring.git
-cd zeta26-relic-ring
-
-# Install backend dependencies
 cd backend
 pip install -r requirements.txt
+```
 
-# Run the backend server
+Install frontend dependencies:
+
+```bash
+cd frontend
+npm install
+```
+
+## Running the Application
+
+Start the backend API:
+
+```bash
+cd backend
 python app.py
 ```
 
-### Open the app
-Navigate to **http://localhost:5000** in your browser.
+The backend runs on:
 
-> The Flask server automatically serves the `frontend/index.html` — no separate frontend server needed!
+```text
+http://localhost:5000
+```
 
----
+Start the frontend development server in a second terminal:
 
-## 👥 For Team Members
-
-### Working on the Backend (`/backend`)
 ```bash
-cd backend
-pip install -r requirements.txt
-python app.py          # Starts server on http://localhost:5000
-```
-- `app.py` — All routing, encoding and latency logic
-- `universe-config.json` — Planet data (never hardcode values!)
-- `requirements.txt` — Add new Python packages here
-
-### Working on the Frontend (`/frontend`)
-- Edit `frontend/index.html` directly — it's a single self-contained file
-- No build tools, no npm, no node required
-- Refresh the browser to see changes (backend must be running)
-
----
-
-## 📐 Physics & Math
-
-### 1. Void Distance `L`
-The vacuum gap between two planet atmospheres:
-```
-L = √((x₂−x₁)² + (y₂−y₁)²) × S  −  (R₁+h₁)  −  (R₂+h₂)
-```
-- `S` = 100,000 km/grid-unit (coordinate scale)
-- `R` = planet radius, `h` = atmosphere thickness
-- **Constraint:** L > 50,000,000 km → hop is impossible, must relay
-
-### 2. Void Travel Time `Tv`
-Light slows in atmosphere (refraction index `n`):
-```
-Tv = [(h₁×n₁) + (h₂×n₂) + L] / c
-```
-- `c` = 300,000 km/s (speed of light)
-
-### 3. Internal Planet Transit `Tp`
-Fiber ring travel between entry and exit towers + processing delay:
-```
-Tp = (2π × r × s) / (N × f × c)  +  m × Δt
-```
-- `s` = ring segments (shortest arc between towers)
-- `f` = 0.67 (fiber speed fraction)
-- `m` = towers hit, `Δt` = 7 ms per tower
-
-### 4. Total End-to-End Latency
-```
-Total = Σ Tp(Pᵢ) + Σ Tv(Pᵢ → Pᵢ₊₁)
+cd frontend
+npm run dev
 ```
 
-### 5. Data Encoding (Codex Conversion)
-Each hop converts the ASCII payload to the next planet's numerical base:
-```
-'H' (ASCII 72) → Base 5 = "242" → Base 14 = "52" → ASCII 72 → 'H'
-```
+The frontend runs on:
 
----
-
-## 🏗️ Architecture
-
-```
-app.py          ← Flask backend (routing, encoding, latency engine)
-index.html      ← Single-file frontend (Canvas UI, dark space theme)
-universe-config.json  ← Planet configuration (parsed dynamically — no hardcoding)
-requirements.txt
+```text
+http://127.0.0.1:5173
 ```
 
-### API Endpoints
+## Production Build
+
+Build the frontend:
+
+```bash
+cd frontend
+npm run build
+```
+
+Preview the built frontend:
+
+```bash
+cd frontend
+npm run preview
+```
+
+## Universe Configuration
+
+Planet data and simulation constants are defined in:
+
+```text
+backend/universe-config.json
+```
+
+Each planet includes:
+
+- `id`
+- `codex`
+- `x` and `y` coordinate center points
+- `radius_km`
+- `active_towers`
+- `atmosphere_thickness_km`
+- `refraction_index`
+
+The current ZETA-26 planets are:
+
+| Planet | Coordinates | Codex | Towers | Radius |
+| --- | --- | ---: | ---: | ---: |
+| Aegis | `(0, 0)` | 8 | 8 | 6,371 km |
+| Boreas | `(150, 100)` | 5 | 4 | 3,389 km |
+| Dawn | `(350, 50)` | 6 | 6 | 1,500 km |
+| Elysium | `(300, 350)` | 10 | 12 | 6,051 km |
+| Fenix | `(500, -100)` | 16 | 4 | 1,200 km |
+| Caelum | `(650, 200)` | 14 | 16 | 58,232 km |
+
+## Simulation Model
+
+### Void Distance
+
+The void distance between two planets is calculated from center-to-center coordinate distance, then reduced by each planet's radius and atmosphere shell:
+
+```text
+L = sqrt((x2 - x1)^2 + (y2 - y1)^2) * S - (R1 + h1) - (R2 + h2)
+```
+
+Where:
+
+- `S` is `coordinate_scale_unit_km`
+- `R` is planet radius
+- `h` is atmosphere thickness
+- `L` must not exceed `max_void_hop_distance_km`
+
+### Void Travel Time
+
+```text
+Tv = ((h1 * n1) + (h2 * n2) + L) / c
+```
+
+Where:
+
+- `n` is atmosphere refraction index
+- `c` is `speed_of_light_kms`
+
+### Internal Fiber Transit
+
+Internal movement across a planet is based on the shortest tower-ring segment path:
+
+```text
+fiber_ms = ((2 * pi * radius_km * segments) / active_towers) / (fiber_speed_fraction * c) * 1000
+```
+
+Tower processing is added per hop using `tower_processing_delay_ms`.
+
+## API Reference
+
+### Universe
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET  | `/api/universe` | All planets, edges, tower positions |
-| POST | `/api/route` | Find fastest route (Dijkstra) |
-| POST | `/api/send` | Full transmission + hop-by-hop encoding log |
-| POST | `/api/kill_planet` | Mark a planet as dead |
-| POST | `/api/kill_link` | Sever a link between two planets |
-| POST | `/api/restore` | Restore all failed nodes/links |
-| POST | `/api/encode` | Encode a message into a specific base |
+| --- | --- | --- |
+| `GET` | `/api/universe` | Returns planets, towers, edges, metadata, and failure state. |
 
----
+### Routing and Packets
 
-## 🎮 Features
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `POST` | `/api/routes/shortest-path` | Calculates the lowest-latency route without storing a packet. |
+| `GET` | `/api/routes/details` | Returns route details from query parameters. |
+| `POST` | `/api/packets/send` | Sends and stores a packet with hop telemetry. |
+| `GET` | `/api/packets/<packet_id>/download` | Downloads a stored packet as JSON. |
+| `GET` | `/api/packets/<packet_id>/logs/stream` | Streams packet hop logs as server-sent events. |
 
-- **Universe Map** — 2D canvas with animated starfield, planet glow, tower dots
-- **Route Highlight** — fastest path shown in green, over-limit links in dashed gray
-- **Packet Animation** — flying particle travels along the route in real time
-- **Latency Breakdown Bar** — visual split of fiber / atmosphere / tower / void delay
-- **Hop Table** — per-hop: towers used, void distance, all latency components, encoded sample
-- **Message Log** — live color-coded event stream (encode → send → receive → decode)
-- **Chaos Controls** — kill any planet or link, instant rerouting on next transmission
-- **Pan & Zoom** — drag and scroll to explore the universe map
+### Failures
 
----
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/api/failures` | Returns deactivated planets and links. |
+| `POST` | `/api/failures/planets/<planet_id>` | Deactivates a planet. |
+| `DELETE` | `/api/failures/planets/<planet_id>` | Restores a planet. |
+| `POST` | `/api/failures/links` | Deactivates a bidirectional link. |
+| `DELETE` | `/api/failures/links` | Restores a bidirectional link. |
 
-## 🔧 Assumed Constants
+### Compatibility Endpoints
 
-All constants are read from `universe-config.json` — **no hardcoded planetary values**.
+The backend also keeps earlier compatibility routes:
 
-| Constant | Value | Source |
-|----------|-------|--------|
-| Speed of light `c` | 300,000 km/s | `universe_metadata.speed_of_light_kms` |
-| Max void hop | 50,000,000 km | `universe_metadata.max_void_hop_distance_km` |
-| Coordinate scale | 100,000 km/unit | `universe_metadata.coordinate_scale_unit_km` |
-| Fiber speed fraction | 0.67 | `universe_metadata.fiber_speed_fraction` |
-| Tower delay | 7 ms | `universe_metadata.tower_processing_delay_ms` |
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `POST` | `/api/route` | Legacy route lookup. |
+| `POST` | `/api/send` | Legacy packet transmission. |
+| `POST` | `/api/route_analysis` | Detailed route analysis. |
+| `POST` | `/api/kill_planet` | Legacy planet failure endpoint. |
+| `POST` | `/api/kill_link` | Legacy link failure endpoint. |
+| `POST` | `/api/restore` | Restores all failures. |
+| `POST` | `/api/encode` | Encodes a message into a requested base. |
 
----
+## Example Packet Request
 
-## 🛠️ Tech Stack
+```bash
+curl -X POST http://localhost:5000/api/packets/send \
+  -H "Content-Type: application/json" \
+  -d "{\"from_planet\":\"Aegis\",\"from_tower\":\"T0\",\"to_planet\":\"Caelum\",\"message\":\"Hello Zeta-26\",\"disabled_planets\":[]}"
+```
 
-| Layer | Technology |
-|-------|------------|
-| **Backend** | Python 3 + Flask |
-| **Frontend** | Vanilla HTML5 + CSS3 + JavaScript (Canvas API) |
-| **Routing** | Dijkstra's shortest-path algorithm |
-| **Styling** | Pure CSS — no Tailwind, no Bootstrap |
-| **JS Libs** | None — zero frontend dependencies |
+## Frontend Notes
 
----
+The frontend map uses the planet `x` and `y` values as a 2D coordinate plane:
 
-*Built for Launch26 Phase 01 — IEEE CS Chapter, University of Kelaniya*
+- Positive X moves right.
+- Positive Y moves upward.
+- Packet routes are drawn directly between the selected sending and receiving towers.
+- Failure controls and route telemetry update through the Flask API.
+
+## Verification
+
+Use these commands before submitting changes:
+
+```bash
+cd frontend
+npm run build
+```
+
+```bash
+cd backend
+python app.py
+```
+
+Then open:
+
+```text
+http://127.0.0.1:5173
+```
+
+
+## Acknowledgements
+
+Built for Launch26 Phase 01 and the IEEE CS Chapter, University of Kelaniya.

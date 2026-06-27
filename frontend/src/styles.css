@@ -1,12 +1,17 @@
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap");
+
 :root {
   color-scheme: dark;
   --bg: oklch(0.145 0.025 250);
-  --panel: oklch(0.19 0.025 250);
-  --panel-2: oklch(0.235 0.03 248);
-  --surface: oklch(0.275 0.035 248);
-  --surface-soft: oklch(0.22 0.025 248);
+  --panel: rgba(8, 15, 30, 0.45);
+  --panel-2: rgba(12, 22, 40, 0.5);
+  --surface: rgba(24, 39, 62, 0.58);
+  --surface-soft: rgba(13, 24, 42, 0.5);
   --line: oklch(0.39 0.045 240);
   --line-soft: oklch(0.31 0.035 246);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-shine: rgba(255, 255, 255, 0.03);
+  --glass-blur: blur(20px);
   --text: oklch(0.91 0.025 235);
   --muted: oklch(0.7 0.035 235);
   --dim: oklch(0.54 0.035 235);
@@ -14,13 +19,33 @@
   --accent-strong: oklch(0.82 0.16 170);
   --danger: oklch(0.7 0.18 20);
   --warn: oklch(0.78 0.15 70);
-  --radius: 8px;
-  --font: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --radius: 20px;
+  --radius-sm: 14px;
+  --radius-lg: 24px;
+  --font: Montserrat, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
 }
 
 * { box-sizing: border-box; }
 html, body, #root { min-height: 100%; margin: 0; }
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 180, 206, 0.34) transparent;
+}
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(148, 180, 206, 0.28);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 180, 206, 0.46);
+}
 body {
   background: var(--bg);
   color: var(--text);
@@ -37,7 +62,7 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   width: 100vw;
   height: 100vh;
   display: grid;
-  grid-template-rows: 58px minmax(0, 1fr) 258px;
+  grid-template-rows: 58px minmax(0, 1fr) minmax(292px, 32vh);
   background:
     radial-gradient(circle at 20% 10%, oklch(0.25 0.055 232 / 0.58), transparent 34%),
     linear-gradient(180deg, oklch(0.16 0.025 252), var(--bg));
@@ -49,8 +74,10 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   gap: 14px;
   min-width: 0;
   padding: 10px 18px;
-  border-bottom: 1px solid var(--line);
-  background: oklch(0.16 0.026 250 / 0.96);
+  border-bottom: 1px solid var(--glass-border);
+  background: linear-gradient(135deg, var(--glass-shine), transparent), rgba(8, 15, 30, 0.55);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
 }
 .brand-mark {
   width: 38px;
@@ -60,14 +87,15 @@ button:focus-visible, select:focus-visible, textarea:focus-visible {
   display: grid;
   place-items: center;
   color: var(--accent);
-  font: 700 11px var(--mono);
-  background: oklch(0.23 0.045 235);
+  font: 800 11px var(--font);
+  background: rgba(255, 255, 255, 0.05);
 }
 h1 {
   font-size: 17px;
   line-height: 1.2;
   margin: 0;
   letter-spacing: 0;
+  font-weight: 800;
 }
 .topbar p {
   margin: 2px 0 0;
@@ -87,10 +115,12 @@ h1 {
   align-items: center;
   min-height: 30px;
   padding: 0 10px;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   color: var(--muted);
-  background: oklch(0.19 0.025 250);
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   font-size: 12px;
 }
 .top-stats b { color: var(--text); }
@@ -104,7 +134,7 @@ h1 {
   background: oklch(0.23 0.06 20);
   color: var(--text);
   padding: 8px 12px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
 }
 
 .workspace {
@@ -118,7 +148,7 @@ h1 {
   min-width: 0;
   min-height: 360px;
   background: #020407;
-  border-right: 1px solid var(--line);
+  border-right: 1px solid var(--glass-border);
   overflow: hidden;
 }
 .universe-canvas {
@@ -147,7 +177,10 @@ h1 {
   padding: 9px 10px;
   border: 1px solid var(--line-soft);
   border-radius: var(--radius);
-  background: oklch(0.16 0.02 250 / 0.88);
+  background: linear-gradient(135deg, var(--glass-shine), transparent), var(--panel);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-color: var(--glass-border);
   color: var(--muted);
   font-size: 12px;
 }
@@ -167,9 +200,11 @@ h1 {
   min-height: 32px;
   padding: 0 10px;
   color: var(--text);
-  border: 1px solid var(--line);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius);
-  background: oklch(0.18 0.025 250 / 0.92);
+  background: rgba(8, 15, 30, 0.48);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   cursor: pointer;
 }
 .tooltip {
@@ -177,9 +212,11 @@ h1 {
   z-index: 3;
   min-width: 150px;
   padding: 10px;
-  border: 1px solid var(--accent);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius);
-  background: oklch(0.16 0.025 250 / 0.96);
+  background: rgba(8, 15, 30, 0.62);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   display: grid;
   gap: 3px;
   color: var(--muted);
@@ -191,17 +228,23 @@ h1 {
 .side-panel {
   min-width: 0;
   overflow: auto;
+  padding-bottom: 14px;
   background: var(--panel);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
 }
 .panel-section {
-  padding: 16px;
-  border-bottom: 1px solid var(--line-soft);
+  padding: 16px 16px 18px;
+  border: 1px solid var(--glass-border);
+  border-width: 0 0 1px;
+  background: linear-gradient(135deg, var(--glass-shine), transparent), rgba(8, 15, 30, 0.34);
 }
 .section-title {
   margin-bottom: 12px;
   color: var(--accent);
   font-weight: 700;
   font-size: 12px;
+  letter-spacing: 0;
 }
 label {
   display: grid;
@@ -215,9 +258,11 @@ select, textarea {
   min-height: 36px;
   color: var(--text);
   background: var(--surface-soft);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
   padding: 8px 10px;
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
 }
 textarea {
   resize: vertical;
@@ -227,16 +272,17 @@ textarea {
 .button-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .button, .failure-row button, .link-toggle {
   min-height: 34px;
-  border-radius: var(--radius);
-  border: 1px solid var(--line);
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
   background: var(--surface);
   color: var(--text);
   cursor: pointer;
+  font-weight: 600;
 }
 .button:disabled { opacity: 0.55; cursor: not-allowed; }
 .button.primary {
   border-color: oklch(0.72 0.15 170);
-  background: oklch(0.34 0.1 170);
+  background: linear-gradient(135deg, oklch(0.56 0.14 172), oklch(0.35 0.1 205));
   color: white;
 }
 .button.secondary:hover, .failure-row button:hover, .link-toggle:hover, .map-reset:hover {
@@ -282,13 +328,17 @@ textarea {
   min-height: 0;
   display: grid;
   grid-template-columns: 360px minmax(0, 1fr) 360px;
+  gap: 0;
   background: var(--panel);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
 }
 .summary-panel, .table-panel, .log-panel {
   min-width: 0;
   min-height: 0;
-  padding: 14px 16px;
-  border-right: 1px solid var(--line-soft);
+  padding: 16px 16px 20px;
+  border-right: 1px solid var(--glass-border);
+  background: linear-gradient(135deg, var(--glass-shine), transparent), rgba(8, 15, 30, 0.36);
 }
 .log-panel { border-right: 0; }
 .summary-header {
@@ -305,7 +355,7 @@ textarea {
   min-height: 24px;
   padding: 0 9px;
   border-radius: 999px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--glass-border);
   color: var(--muted);
   background: var(--surface-soft);
   font-weight: 700;
@@ -326,7 +376,7 @@ textarea {
   min-height: 38px;
   margin: 12px 0;
   padding: 8px;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   background: var(--surface-soft);
 }
@@ -350,6 +400,11 @@ textarea {
   border: 1px solid var(--line-soft);
   border-radius: var(--radius);
   background: var(--surface-soft);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+.summary-panel {
+  overflow: auto;
 }
 .stat-grid span {
   display: block;
@@ -384,8 +439,9 @@ textarea {
 .latency-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .latency-legend i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; }
 .table-scroll, .log-scroll {
-  height: calc(100% - 28px);
+  height: calc(100% - 34px);
   overflow: auto;
+  padding-bottom: 12px;
 }
 table {
   width: 100%;
@@ -393,7 +449,7 @@ table {
   font-size: 12px;
 }
 th, td {
-  padding: 9px 8px;
+  padding: 10px 8px;
   border-bottom: 1px solid var(--line-soft);
   text-align: left;
   white-space: nowrap;
@@ -401,7 +457,9 @@ th, td {
 th {
   position: sticky;
   top: 0;
-  background: var(--panel);
+  background: rgba(8, 15, 30, 0.78);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   color: var(--muted);
   font-size: 11px;
   z-index: 1;
@@ -422,6 +480,7 @@ td { color: var(--text); }
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding-right: 2px;
 }
 .log-row {
   display: grid;
@@ -429,7 +488,7 @@ td { color: var(--text); }
   gap: 8px;
   align-items: start;
   padding: 8px;
-  border: 1px solid var(--line-soft);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius);
   background: var(--surface-soft);
 }

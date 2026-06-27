@@ -1,38 +1,76 @@
-# Relic Ring Backend
+# ZETA-26 Backend
 
-FastAPI backend for the Zeta-26 Relic Ring Protocol simulator.
+Flask backend for the ZETA-26 Relic Ring Protocol simulator. This service owns the universe configuration, routing engine, latency calculations, packet transmission flow, failure state, and packet download endpoints.
+
+## Responsibilities
+
+- Load planet and simulation constants from `universe-config.json`.
+- Build valid interplanetary links using the maximum void-hop distance.
+- Calculate shortest valid packet routes.
+- Select send and receive towers for each hop.
+- Encode payloads into the next planet's codex base.
+- Track deactivated planets and links.
+- Store sent packets in memory for JSON download.
 
 ## Run
 
+Install dependencies:
+
 ```bash
 pip install -r requirements.txt
+```
+
+Start the server:
+
+```bash
 python app.py
 ```
 
-The API serves the existing frontend at `http://localhost:5000` and exposes the planned routes under `/api`.
+The API runs at:
 
-## Key Endpoints
+```text
+http://localhost:5000
+```
 
-- `GET /api/health`
-- `GET /api/universe`
-- `POST /api/routes/shortest-path`
-- `POST /api/routes/shortest-path/without-planet`
-- `POST /api/routes/details`
-- `GET /api/routes/stream-logs`
-- `GET /api/failures`
-- `POST/DELETE /api/failures/planets/{planet_id}`
-- `POST/DELETE /api/failures/links`
+## Core Endpoints
 
-Compatibility endpoints for the existing frontend are still available: `/api/route`, `/api/send`, `/api/kill_planet`, `/api/kill_link`, `/api/restore`, `/api/route_analysis`, and `/api/encode`.
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/api/universe` | Returns planets, towers, edges, metadata, and failure state. |
+| `POST` | `/api/routes/shortest-path` | Computes the lowest-latency route without storing a packet. |
+| `GET` | `/api/routes/details` | Computes route details from query parameters. |
+| `POST` | `/api/packets/send` | Sends and stores a packet with hop telemetry. |
+| `GET` | `/api/packets/<packet_id>/download` | Downloads a stored packet JSON file. |
+| `GET` | `/api/packets/<packet_id>/logs/stream` | Streams packet hop logs as SSE. |
 
-## Assumptions
+## Failure Endpoints
 
-- Planet `x/y` coordinates are center points and are scaled by `coordinate_scale_unit_km`.
-- Planet radius and atmosphere thickness are already in kilometers.
-- Tower 0 starts at the top; tower indexes increase clockwise.
-- The closest tower pair is selected by tower-to-tower Euclidean distance.
-- Official void distance `L` uses center-to-center distance minus radius and atmosphere shells.
-- Tower positions do not affect `L` or direct-link validity.
-- Dijkstra runs on expanded `(planet, tower)` states and minimizes total latency.
-- Destination delivery ends at the receiving tower, so no extra destination fiber movement is added.
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/api/failures` | Returns current failed planets and links. |
+| `POST` | `/api/failures/planets/<planet_id>` | Deactivates a planet. |
+| `DELETE` | `/api/failures/planets/<planet_id>` | Restores a planet. |
+| `POST` | `/api/failures/links` | Deactivates a bidirectional link. |
+| `DELETE` | `/api/failures/links` | Restores a bidirectional link. |
+
+## Compatibility Endpoints
+
+The backend also exposes earlier routes used by older clients:
+
+- `POST /api/route`
+- `POST /api/send`
+- `POST /api/route_analysis`
+- `POST /api/kill_planet`
+- `POST /api/kill_link`
+- `POST /api/restore`
+- `POST /api/encode`
+
+## Configuration Notes
+
+- Planet `x` and `y` values are center coordinates in a 2D plane.
+- `coordinate_scale_unit_km` converts coordinate units to kilometers.
+- Planet radius and atmosphere thickness are stored in kilometers.
+- Tower `T0` starts at the top of the planet ring.
+- Tower indexes increase clockwise.
 - Deactivated links are treated as bidirectional.
+- Packet storage is in memory and resets when the server restarts.
