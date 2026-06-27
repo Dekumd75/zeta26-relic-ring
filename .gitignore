@@ -44,3 +44,9 @@ test_api.py
 
 # PDF outputs (generated artifacts, not source)
 Launch26_Deep_Explanation.pdf
+
+# Old root-level source files (moved to backend/ and frontend/)
+/app.py
+/index.html
+/requirements.txt
+/universe-config.json

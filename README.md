@@ -5,6 +5,22 @@
 
 ---
 
+## 📁 Project Structure
+
+```
+zeta26-relic-ring/
+├── backend/
+│   ├── app.py                 ← Flask server (routing, encoding, latency engine)
+│   ├── universe-config.json   ← Planet configuration (parsed dynamically)
+│   └── requirements.txt       ← Python dependencies
+├── frontend/
+│   └── index.html             ← Full UI (single-file, no build step needed)
+├── README.md
+└── .gitignore
+```
+
+---
+
 ## 🚀 Overview
 
 ZETA-26 is an **interplanetary network routing simulator** built for the Launch26 Phase 01 challenge. It simulates laser-based packet transmission across 6 planets in the fictional Zeta-26 universe, featuring:
@@ -43,15 +59,37 @@ ZETA-26 is an **interplanetary network routing simulator** built for the Launch2
 git clone https://github.com/YOUR_USERNAME/zeta26-relic-ring.git
 cd zeta26-relic-ring
 
-# Install dependencies
+# Install backend dependencies
+cd backend
 pip install -r requirements.txt
 
-# Run the server
+# Run the backend server
 python app.py
 ```
 
 ### Open the app
 Navigate to **http://localhost:5000** in your browser.
+
+> The Flask server automatically serves the `frontend/index.html` — no separate frontend server needed!
+
+---
+
+## 👥 For Team Members
+
+### Working on the Backend (`/backend`)
+```bash
+cd backend
+pip install -r requirements.txt
+python app.py          # Starts server on http://localhost:5000
+```
+- `app.py` — All routing, encoding and latency logic
+- `universe-config.json` — Planet data (never hardcode values!)
+- `requirements.txt` — Add new Python packages here
+
+### Working on the Frontend (`/frontend`)
+- Edit `frontend/index.html` directly — it's a single self-contained file
+- No build tools, no npm, no node required
+- Refresh the browser to see changes (backend must be running)
 
 ---
 
@@ -147,10 +185,13 @@ All constants are read from `universe-config.json` — **no hardcoded planetary 
 
 ## 🛠️ Tech Stack
 
-- **Backend:** Python 3 + Flask
-- **Frontend:** Vanilla HTML5, CSS3, JavaScript (Canvas API)
-- **Routing:** Dijkstra's shortest-path algorithm
-- **No external JS frameworks** — zero dependencies on the frontend
+| Layer | Technology |
+|-------|------------|
+| **Backend** | Python 3 + Flask |
+| **Frontend** | Vanilla HTML5 + CSS3 + JavaScript (Canvas API) |
+| **Routing** | Dijkstra's shortest-path algorithm |
+| **Styling** | Pure CSS — no Tailwind, no Bootstrap |
+| **JS Libs** | None — zero frontend dependencies |
 
 ---
 
